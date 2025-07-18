@@ -32,7 +32,7 @@ async def main():
     adapter = await Adapter.get_first(bus)
 
     # Create advertisement with required timeout parameter
-    ad = Advertisement("uHandPi", [SERVICE_UUID], 0x0340, 0)  # 0 = no timeout
+    ad = Advertisement("Yorick", [SERVICE_UUID], 0x0340, 0)  # 0 = no timeout
     await ad.register(bus, adapter)
 
     print("Advertising BLE service", SERVICE_UUID)
