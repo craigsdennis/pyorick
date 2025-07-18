@@ -11,5 +11,5 @@ def run_action_group(actNum):
 
 if __name__ == "__main__":
     board = Board()
-    agc = ActionGroupController(board)
-    run_action_group("17_left_move")
+    agc = ActionGroupController(board, action_path="/home/pi/pyorick")
+    run_action_group("left_test")
