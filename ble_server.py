@@ -10,7 +10,7 @@ class MyCommandService(Service):
     def __init__(self):
         super().__init__(SERVICE_UUID, True)
 
-    @characteristic("1234", CharFlags.WRITE)
+    @characteristic("12345678-1234-5678-1234-56789abcdef1", CharFlags.WRITE)
     def command(self, options):
         # Placeholder for write-only characteristic
         pass
