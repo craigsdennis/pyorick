@@ -1,25 +1,36 @@
 import asyncio
-from bluez_peripheral import (Service, Characteristic, Peripheral)
+from bluez_peripheral.gatt.service import Service, ServiceCollection
+from bluez_peripheral.gatt.characteristic import characteristic, CharacteristicFlags as CharFlags
+from bluez_peripheral.advert import Advertisement
+from bluez_peripheral.util import get_message_bus
 
-SERVICE_UUID = '12345678-1234-5678-1234-56789abcdef0'
-CHAR_UUID    = '12345678-1234-5678-1234-56789abcdef1'
+SERVICE_UUID = "12345678-1234-5678-1234-56789abcdef0"
 
-class CommandChar(Characteristic):
+class MyCommandService(Service):
     def __init__(self):
-        super().__init__(CHAR_UUID, ['write'], max_len=20)
+        super().__init__(SERVICE_UUID, True)
 
-    def on_write_request(self, value, options):
-        cmd = value.decode()
-        print(f"Command from WebBluetooth: {cmd}")
-        # 🔧 Trigger your GPIO/servo here
+    @characteristic("1234", CharFlags.WRITE)
+    def command(self, value, options):
+        # This handler is invoked on writes
+        cmd = bytes(value).decode("utf-8")
+        print("Received:", cmd)
+        # TODO: trigger GPIO/servo here
 
 async def main():
-    svc = Service(SERVICE_UUID)
-    svc.add_characteristic(CommandChar())
+    bus = await get_message_bus()
 
-    periph = Peripheral("uHandPi", [svc])
-    await periph.publish()  # starts advertising + GATT server
-    print("Advertising uHandPi...")
-    await asyncio.Event().wait()
+    svc = MyCommandService()
+    await svc.register(bus)
 
-asyncio.run(main())
+    ad = Advertisement(bus, 0, "peripheral")
+    ad.add_service_uuid(SERVICE_UUID)
+    ad.include_tx_power = True
+    ad.local_name = "uHandPi"
+    await ad.register(bus)
+
+    print("Advertising BLE service", SERVICE_UUID)
+    await asyncio.get_event_loop().create_future()  # run forever
+
+if __name__ == "__main__":
+    asyncio.run(main())
