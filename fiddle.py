@@ -1,21 +1,14 @@
 import threading
 import argparse
-import os
-import glob
 
 # Installed in the main packages on the uHandPi it's in common_sdk folder
 from common.action_group_controller import ActionGroupController
 from common.ros_robot_controller_sdk import Board 
+from utils import get_available_action_groups
 
 def run_action_group(actNum):
     print(f"Running action group {actNum}")
     threading.Thread(target=agc.runAction, args=(actNum,)).start()
-
-def get_available_action_groups():
-    """Get list of available action groups from ./action_groups directory."""
-    pattern = os.path.join("action_groups", "*.d6a")
-    files = glob.glob(pattern)
-    return [os.path.splitext(os.path.basename(f))[0] for f in files]
 
 if __name__ == "__main__":
     available_groups = get_available_action_groups()
