@@ -299,6 +299,70 @@ All UUIDs now use consistent 128-bit format:
 3. **Discovery Reliability**: Uniform formatting prevents client parsing issues
 4. **Debugging Clarity**: Easy identification of complete 128-bit UUID values
 
+## Duplicate CCCD Resolution - Final Fix
+
+### Chrome Security Error Discovery
+Client revealed the root cause with detailed diagnostic:
+```
+SecurityError: writeValue() called on blocklisted object marked exclude-writes
+```
+
+**Analysis**: Chrome detected **multiple CCCD descriptors** (2 showing up) causing security restrictions to block direct CCCD writes.
+
+### Root Cause: Duplicate CCCD Creation
+**Problem**: Manual CCCD creation conflicted with bluez_peripheral's automatic CCCD handling
+- **bluez_peripheral automatically adds CCCD** for characteristics with NOTIFY flag
+- **We manually added another CCCD** with `@response.descriptor`
+- **Result**: Duplicate CCCDs triggered Chrome's security blocklist
+
+### Library Documentation Confirms
+Research revealed bluez_peripheral documentation explicitly states:
+> "Do not attempt to create... a Client Characteristic Configuration Descriptor... These are both handled automatically by Bluez and attempting to define them will result in errors."
+
+### Complete CCCD Removal Applied
+**File**: `ble_server.py` - Removed all manual CCCD handling:
+
+```python
+# REMOVED: Manual CCCD descriptor (was creating duplicates)
+@response.descriptor("00002902-0000-1000-8000-00805f9b34fb", DescFlags.READ | DescFlags.WRITE)
+def response_cccd(self, options):
+    return b"\x00\x00"
+
+@response_cccd.setter 
+def response_cccd(self, value, options):
+    # Manual notification state tracking
+    self._notifications_enabled = True/False
+
+# REMOVED: Conditional notification sending
+if self._notifications_enabled:
+    self.response.changed(self._response_data)
+```
+
+**Final Clean Implementation**:
+```python
+@characteristic("12345678-1234-5678-1234-56789abcdef2", CharFlags.READ | CharFlags.NOTIFY)
+def response(self, options):
+    return self._response_data
+
+# Always notify - library handles subscriptions automatically
+self.response.changed(self._response_data)
+```
+
+### Technical Resolution
+**Before**: Dual CCCD descriptors (automatic + manual) → Chrome security block
+**After**: Single automatic CCCD → Standard BLE behavior
+
+**Expected Client Behavior**:
+1. **Single CCCD Discovery**: Client sees only one CCCD descriptor
+2. **Security Clearance**: No more "blocklisted object" errors
+3. **Standard API**: `startNotifications()` works without Chrome restrictions
+4. **Automatic Management**: Library handles all client subscription states
+
+### Testing Strategy Recommended
+1. **Basic Commands First**: Test Open Hand/Close Hand to verify write path
+2. **Notification Testing**: Use standard `startNotifications()` method
+3. **Full Functionality**: JSON command → response notification flow
+
 ## Educational Value
 This session demonstrates:
 - **BLE notification architecture** and required components

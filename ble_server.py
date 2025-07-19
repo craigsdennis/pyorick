@@ -14,7 +14,6 @@ class MyCommandService(Service):
     def __init__(self):
         super().__init__(SERVICE_UUID, True)
         self._response_data = b""
-        self._notifications_enabled = False
 
     @characteristic("12345678-1234-5678-1234-56789abcdef1", CharFlags.WRITE)
     def command(self, options):
@@ -32,9 +31,8 @@ class MyCommandService(Service):
             command_data = json.loads(cmd)
             response = self.handle_json_command(command_data)
             self._response_data = json.dumps(response).encode("utf-8")
-            # Notify subscribers that response data has changed (if notifications enabled)
-            if self._notifications_enabled:
-                self.response.changed(self._response_data)
+            # Notify subscribers that response data has changed
+            self.response.changed(self._response_data)
         except json.JSONDecodeError:
             # Fallback to plain text command
             print(f"Plain text command: {cmd}")
@@ -45,20 +43,6 @@ class MyCommandService(Service):
         # Return the current response data
         return self._response_data
     
-    @response.descriptor("00002902-0000-1000-8000-00805f9b34fb", DescFlags.READ | DescFlags.WRITE)
-    def response_cccd(self, options):
-        # Client Characteristic Configuration Descriptor (standard CCCD UUID)
-        return b"\x00\x00"
-    
-    @response_cccd.setter
-    def response_cccd(self, value, options):
-        # Handle notification enable/disable
-        if value == b'\x01\x00':
-            self._notifications_enabled = True
-            print("Notifications enabled")
-        else:
-            self._notifications_enabled = False
-            print("Notifications disabled")
 
     def handle_json_command(self, command_data):
         """Handle JSON commands and return appropriate responses."""
