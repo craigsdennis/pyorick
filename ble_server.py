@@ -1,5 +1,6 @@
 import asyncio
 import json
+import threading
 from bluez_peripheral.gatt.service import Service
 from bluez_peripheral.gatt.characteristic import characteristic, CharacteristicFlags as CharFlags
 from bluez_peripheral.gatt.descriptor import descriptor, DescriptorFlags as DescFlags
@@ -8,12 +9,33 @@ from bluez_peripheral.util import get_message_bus, Adapter
 from bluez_peripheral.agent import NoIoAgent
 from utils import get_available_action_groups
 
+# Installed in the main packages on the uHandPi it's in common_sdk folder
+try:
+    from common.action_group_controller import ActionGroupController
+    from common.ros_robot_controller_sdk import Board
+    ACTION_GROUPS_AVAILABLE = True
+except ImportError:
+    print("Warning: Action group controller not available (not on Pi)")
+    ACTION_GROUPS_AVAILABLE = False
+
 SERVICE_UUID = "12345678-1234-5678-1234-56789abcdef0"
 
 class MyCommandService(Service):
     def __init__(self):
         super().__init__(SERVICE_UUID, True)
         self._response_data = b""
+        
+        # Initialize action group controller if available
+        if ACTION_GROUPS_AVAILABLE:
+            try:
+                self.board = Board()
+                self.agc = ActionGroupController(self.board, action_path="/home/pi/pyorick")
+                print("Action group controller initialized")
+            except Exception as e:
+                print(f"Failed to initialize action group controller: {e}")
+                self.agc = None
+        else:
+            self.agc = None
 
     @characteristic("12345678-1234-5678-1234-56789abcdef1", CharFlags.WRITE)
     def command(self, options):
@@ -43,6 +65,19 @@ class MyCommandService(Service):
         # Return the current response data
         return self._response_data
     
+    def run_action_group(self, action_name):
+        """Run an action group similar to fiddle.py"""
+        if not self.agc:
+            print(f"Cannot run action group '{action_name}': Action group controller not available")
+            return False
+            
+        print(f"Running action group {action_name}")
+        try:
+            threading.Thread(target=self.agc.runAction, args=(action_name,)).start()
+            return True
+        except Exception as e:
+            print(f"Error running action group '{action_name}': {e}")
+            return False
 
     def handle_json_command(self, command_data):
         """Handle JSON commands and return appropriate responses."""
@@ -54,6 +89,32 @@ class MyCommandService(Service):
                 "type": "action_groups_list",
                 "action_groups": available_groups,
                 "success": True
+            }
+        elif cmd_type == "run_action_group":
+            action_name = command_data.get("name")
+            if not action_name:
+                return {
+                    "type": "error",
+                    "message": "Missing 'name' parameter for run_action_group command",
+                    "success": False
+                }
+            
+            # Check if action group exists
+            available_groups = get_available_action_groups()
+            if action_name not in available_groups:
+                return {
+                    "type": "error", 
+                    "message": f"Action group '{action_name}' not found. Available: {', '.join(available_groups)}",
+                    "success": False
+                }
+            
+            # Execute the action group
+            execution_success = self.run_action_group(action_name)
+            return {
+                "type": "action_group_result",
+                "action_name": action_name,
+                "success": execution_success,
+                "message": f"Action group '{action_name}' {'started successfully' if execution_success else 'failed to start'}"
             }
         else:
             return {
