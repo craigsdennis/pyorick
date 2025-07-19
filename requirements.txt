@@ -1,1 +1,3 @@
 bluez-peripheral
+pyyaml
+pyserial
