@@ -266,6 +266,39 @@ responseChar.oncharacteristicvaluechanged = (event) => {
 };
 ```
 
+## UUID Format Consistency Final Update
+
+### Additional UUID Format Issue
+Discovered inconsistent UUID formatting in service advertisement:
+- **Custom service**: Full UUID format ✓
+- **Device info service**: Short format "180A" ❌
+- **CCCD descriptor**: Now full format ✓
+
+### UUID Consistency Fix Applied
+**File**: `ble_server.py:97-98`
+```python
+# Before (mixed formats)
+advertised_services = [SERVICE_UUID, "180A"]
+
+# After (consistent full format)
+device_info_service_uuid = "0000180A-0000-1000-8000-00805f9b34fb"
+advertised_services = [SERVICE_UUID, device_info_service_uuid]
+```
+
+### Complete UUID Map (Final)
+All UUIDs now use consistent 128-bit format:
+- **Service UUID**: `12345678-1234-5678-1234-56789abcdef0`
+- **Command Characteristic**: `12345678-1234-5678-1234-56789abcdef1` (WRITE)
+- **Response Characteristic**: `12345678-1234-5678-1234-56789abcdef2` (READ | NOTIFY)
+- **CCCD Descriptor**: `00002902-0000-1000-8000-00805f9b34fb` (READ | WRITE)
+- **Device Info Service**: `0000180A-0000-1000-8000-00805f9b34fb` (advertised)
+
+### Benefits of UUID Consistency
+1. **Client Compatibility**: Eliminates UUID format confusion across all BLE components
+2. **Standard Compliance**: All UUIDs follow Bluetooth SIG base UUID format
+3. **Discovery Reliability**: Uniform formatting prevents client parsing issues
+4. **Debugging Clarity**: Easy identification of complete 128-bit UUID values
+
 ## Educational Value
 This session demonstrates:
 - **BLE notification architecture** and required components

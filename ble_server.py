@@ -93,8 +93,9 @@ async def main():
     adapter = await Adapter.get_first(bus)
 
     # Create advertisement with both custom and standard service UUIDs
-    # Include generic device information service (180A) for better discoverability
-    advertised_services = [SERVICE_UUID, "180A"]  
+    # Include generic device information service (full UUID format for consistency)
+    device_info_service_uuid = "0000180A-0000-1000-8000-00805f9b34fb"
+    advertised_services = [SERVICE_UUID, device_info_service_uuid]  
     ad = Advertisement("Yorick", advertised_services, 0x0340, 0)  # 0 = no timeout
     await ad.register(bus, adapter)
 
