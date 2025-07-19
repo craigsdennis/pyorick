@@ -139,6 +139,83 @@ Clients can now properly:
 - **Response Characteristic**: `12345678-1234-5678-1234-56789abcdef2` (READ | NOTIFY)
 - **CCCD Descriptor**: `2902` (READ | WRITE)
 
+## Service Discovery Issue Follow-up
+
+### Additional Client Error
+After fixing notifications, client reported new error:
+```
+Connecting to device: raspberrypi
+Could not enumerate services: NotFoundError: No Services found in device.
+Looking for service UUID: 12345678-1234-5678-1234-56789abcdef0
+Failed to connect: NotFoundError: No Services matching UUID 12345678-1234-5678-1234-56789abcdef0 found in Device.
+```
+
+### Root Cause Analysis
+**Service Discovery vs Advertisement Confusion:**
+- BLE advertisements have 31-byte payload limits
+- Not all services appear in advertisement packets
+- Clients often need to connect first, then enumerate services
+- Custom 128-bit UUIDs take significant advertisement space
+
+### Additional Fixes Applied
+
+#### 1. Agent Support Added
+**File**: `ble_server.py:8,85-86`
+```python
+from bluez_peripheral.agent import NoIoAgent
+
+# Register agent for pairing support
+agent = NoIoAgent()
+await agent.register(bus)
+```
+
+#### 2. Enhanced Advertisement Strategy
+**File**: `ble_server.py:95-99`
+```python
+# Create advertisement with both custom and standard service UUIDs
+# Include generic device information service (180A) for better discoverability
+advertised_services = [SERVICE_UUID, "180A"]  
+ad = Advertisement("Yorick", advertised_services, 0x0340, 0)
+await ad.register(bus, adapter)
+```
+
+#### 3. Improved Debug Information
+**File**: `ble_server.py:101-110`
+- Clear startup status reporting
+- Service registration confirmation
+- Client behavior guidance
+
+### Technical Insights
+
+#### BLE Service Discovery Patterns:
+1. **Advertisement Phase**: Limited service info in 31-byte packets
+2. **Connection Phase**: Full service enumeration after connection
+3. **Caching Issues**: BlueZ may cache stale service data
+
+#### Client Behavior Variations:
+- **Some clients**: Scan advertisements only, expect all services listed
+- **Other clients**: Connect first, then discover all services
+- **iOS/Android**: Different scanning strategies and requirements
+
+#### Service Advertisement Best Practices:
+- **Primary Service**: Always advertise main/discovery service UUID
+- **Standard UUIDs**: Include recognized 16-bit service UUIDs 
+- **Space Management**: Prioritize most important services in advertisements
+- **Connection Discovery**: Design for post-connection service enumeration
+
+### Resolution Strategy
+The enhanced server now provides:
+1. **Multiple Discovery Paths**: Advertisement + post-connection enumeration
+2. **Agent Support**: Proper pairing infrastructure for demanding clients
+3. **Standard Service Inclusion**: Better compatibility with generic scanners
+4. **Debug Information**: Clear status for troubleshooting
+
+**Client Implementation Notes:**
+- Try connecting directly even if services not visible in scan
+- Perform service discovery after successful connection
+- Use active scanning when available
+- Clear BLE cache if issues persist
+
 ## Educational Value
 This session demonstrates:
 - **BLE notification architecture** and required components
@@ -147,3 +224,7 @@ This session demonstrates:
 - **State management** in BLE services
 - **Descriptor usage** in GATT services
 - **Protocol compliance** with BLE specification requirements
+- **Service discovery vs advertisement differences**
+- **BLE client compatibility considerations**
+- **Advertisement payload optimization**
+- **Agent setup for pairing support**
