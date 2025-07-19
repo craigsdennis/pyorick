@@ -216,6 +216,56 @@ The enhanced server now provides:
 - Use active scanning when available
 - Clear BLE cache if issues persist
 
+## CCCD UUID Format Issue Final Fix
+
+### Persistent Notification Error
+Even after agent and advertisement improvements, client continued to report:
+```
+"Notifications may already be started: NotSupportedError: GATT Error: Not supported."
+```
+
+Client diagnostic showed correct characteristic access but CCCD issues.
+
+### Root Cause: Short vs Full UUID Format
+**Problem**: Used short UUID format `"2902"` for CCCD descriptor
+**Client Expectation**: Full 128-bit UUID `"00002902-0000-1000-8000-00805f9b34fb"`
+
+### Final Fix Applied
+**File**: `ble_server.py:48`
+```python
+# Before (problematic)
+@response.descriptor("2902", DescFlags.READ | DescFlags.WRITE)
+
+# After (working)
+@response.descriptor("00002902-0000-1000-8000-00805f9b34fb", DescFlags.READ | DescFlags.WRITE)
+```
+
+### Technical Analysis
+**CCCD UUID Standards:**
+- **Short Form**: `2902` (16-bit assigned number)
+- **Full Form**: `00002902-0000-1000-8000-00805f9b34fb` (Bluetooth SIG base UUID)
+- **Client Requirements**: Many clients expect full 128-bit format for descriptor discovery
+- **BLE Spec Compliance**: Full UUID eliminates ambiguity in descriptor identification
+
+### Resolution Verification
+**Expected Client Behavior:**
+1. **CCCD Discovery**: Client can now find descriptor with full UUID
+2. **Write Permission**: Client can write `0x0100` to enable notifications  
+3. **Notification Flow**: Server receives CCCD write → sets `_notifications_enabled = True`
+4. **Response Delivery**: JSON responses sent via `characteristic.changed()`
+
+**Client Implementation Guide:**
+```javascript
+// Correct client-side implementation
+const responseChar = service.getCharacteristic('12345678-1234-5678-1234-56789abcdef2');
+await responseChar.startNotifications(); // Should now work
+
+responseChar.oncharacteristicvaluechanged = (event) => {
+    const response = new TextDecoder().decode(event.target.value);
+    console.log('JSON Response:', JSON.parse(response));
+};
+```
+
 ## Educational Value
 This session demonstrates:
 - **BLE notification architecture** and required components

@@ -45,9 +45,9 @@ class MyCommandService(Service):
         # Return the current response data
         return self._response_data
     
-    @response.descriptor("2902", DescFlags.READ | DescFlags.WRITE)
+    @response.descriptor("00002902-0000-1000-8000-00805f9b34fb", DescFlags.READ | DescFlags.WRITE)
     def response_cccd(self, options):
-        # Client Characteristic Configuration Descriptor
+        # Client Characteristic Configuration Descriptor (standard CCCD UUID)
         return b"\x00\x00"
     
     @response_cccd.setter
