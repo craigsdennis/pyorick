@@ -7,7 +7,7 @@ from bluez_peripheral.gatt.descriptor import descriptor, DescriptorFlags as Desc
 from bluez_peripheral.advert import Advertisement
 from bluez_peripheral.util import get_message_bus, Adapter
 from bluez_peripheral.agent import NoIoAgent
-from utils import get_available_action_groups
+from utils import get_available_action_groups, create_action_group
 
 # Installed in the main packages on the uHandPi it's in common_sdk folder
 try:
@@ -115,6 +115,34 @@ class MyCommandService(Service):
                 "action_name": action_name,
                 "success": execution_success,
                 "message": f"Action group '{action_name}' {'started successfully' if execution_success else 'failed to start'}"
+            }
+        elif cmd_type == "save_action_group":
+            action_name = command_data.get("name")
+            action_group = command_data.get("action_group")
+            
+            if not action_name:
+                return {
+                    "type": "error",
+                    "message": "Missing 'name' parameter for save_action_group command",
+                    "success": False
+                }
+            
+            if not action_group:
+                return {
+                    "type": "error", 
+                    "message": "Missing 'action_group' parameter for save_action_group command",
+                    "success": False
+                }
+            
+            # Create the action group database
+            result = create_action_group(action_name, action_group)
+            
+            return {
+                "type": "action_group_saved",
+                "action_name": action_name,
+                "success": result["success"],
+                "message": result["message"],
+                "steps_count": len(action_group) if result["success"] else 0
             }
         else:
             return {
